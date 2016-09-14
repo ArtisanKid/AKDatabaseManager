@@ -1,0 +1,11 @@
+use_frameworks!
+
+target 'AKDatabaseManager_Example' do
+  pod 'AKDatabaseManager', :path => '../'
+
+  target 'AKDatabaseManager_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end
