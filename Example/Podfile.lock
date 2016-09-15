@@ -1,0 +1,21 @@
+PODS:
+  - AKDatabaseManager (0.1.0):
+    - FMDB (= 2.6.2)
+  - FMDB (2.6.2):
+    - FMDB/standard (= 2.6.2)
+  - FMDB/standard (2.6.2)
+
+DEPENDENCIES:
+  - AKDatabaseManager (from `../`)
+
+EXTERNAL SOURCES:
+  AKDatabaseManager:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  AKDatabaseManager: c7803967a98fc1dfef819e1e4ca99225f8972a45
+  FMDB: 854a0341b4726e53276f2a8996f06f1b80f9259a
+
+PODFILE CHECKSUM: 6691d4f3269b4327325ffb4e6fdfe5ae86e620d5
+
+COCOAPODS: 1.0.1
