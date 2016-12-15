@@ -76,7 +76,7 @@ NSMutableDictionary *AKDatabaseManagerDicM() {
     [self.databaseQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
         canCommit = [db executeUpdate:sql];
         if (!canCommit) {
-            AKDMLog(@"数据库Update错误 Error:%@", db.lastError);
+            AKDatabaseManagerLog(@"数据库Update错误 Error:%@", db.lastError);
             *rollback = YES;
         }
     }];
@@ -98,7 +98,7 @@ NSMutableDictionary *AKDatabaseManagerDicM() {
                 [resultsM addObject:[set resultDictionary]];
             }
         } else {
-            AKDMLog(@"数据库查询错误 Error:%@", db.lastError);
+            AKDatabaseManagerLog(@"数据库查询错误 Error:%@", db.lastError);
         }
         [set close];
     }];
@@ -126,11 +126,11 @@ NSMutableDictionary *AKDatabaseManagerDicM() {
         [mSQL appendString:@"1 = 1"];
     }
     
-    AKDMLog(@"拼装得到的SQL语句:%@", mSQL);
+    AKDatabaseManagerLog(@"拼装得到的SQL语句:%@", mSQL);
     return mSQL;
 }
 
-- (BOOL)update:(NSString *)sql complete:(AKDMUpdateCompleteBlock)complete {
+- (BOOL)update:(NSString *)sql complete:(AKUpdateComplete)complete {
     if(complete) {
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
             BOOL canCommit = [self update:sql];
@@ -144,7 +144,7 @@ NSMutableDictionary *AKDatabaseManagerDicM() {
     }
 }
 
-- (NSArray<NSDictionary *> *)query:(NSString *)sql complete:(AKDMQueryCompleteBlock)complete {
+- (NSArray<NSDictionary *> *)query:(NSString *)sql complete:(AKQueryComplete)complete {
     if(complete) {
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
             NSArray<NSDictionary *> *results = [self query:sql];
