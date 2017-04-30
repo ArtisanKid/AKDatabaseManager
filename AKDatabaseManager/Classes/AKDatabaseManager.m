@@ -15,25 +15,35 @@
 
 @property (nonatomic, strong) FMDatabaseQueue *databaseQueue;
 
+/**
+ 并行读写操作队列
+ */
+@property (nonatomic, strong) dispatch_queue_t concurrentQueue;
+
 @end
 
 @implementation AKDatabaseManager
 
-- (instancetype)init {
-    self = [super init];
-    if(self) {
-        
-    }
-    return self;
-}
-
-NSMutableDictionary *AKDatabaseManagerDicM() {
+static NSMutableDictionary *AKDatabaseManagerDicM() {
     static NSMutableDictionary<NSString *, AKDatabaseManager *> *managerDicM = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         managerDicM = [NSMutableDictionary dictionary];
     });
     return managerDicM;
+}
+
+/**
+ 并行读写操作队列
+ */
+static dispatch_queue_t AKDatabaseManagerConcurrentQueue() {
+    static dispatch_queue_t concurrentQueue = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *label = [NSBundle.mainBundle.bundleIdentifier stringByAppendingString:@".AKDatabaseManager"];
+        concurrentQueue = dispatch_queue_create(label.UTF8String, DISPATCH_QUEUE_CONCURRENT);
+    });
+    return concurrentQueue;
 }
 
 + (AKDatabaseManager *)managerWithDatabasePath:(NSString *)path {
@@ -132,13 +142,13 @@ NSMutableDictionary *AKDatabaseManagerDicM() {
 
 - (BOOL)update:(NSString *)sql complete:(AKUpdateComplete)complete {
     if(complete) {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+        dispatch_barrier_async(AKDatabaseManagerConcurrentQueue(), ^{
             BOOL canCommit = [self update:sql];
             dispatch_async(dispatch_get_main_queue(), ^{
                 complete(canCommit);
             });
         });
-        return NO;
+        return YES;
     } else {
         return [self update:sql];
     }
@@ -146,13 +156,13 @@ NSMutableDictionary *AKDatabaseManagerDicM() {
 
 - (NSArray<NSDictionary *> *)query:(NSString *)sql complete:(AKQueryComplete)complete {
     if(complete) {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+        dispatch_async(AKDatabaseManagerConcurrentQueue(), ^{
             NSArray<NSDictionary *> *results = [self query:sql];
             dispatch_async(dispatch_get_main_queue(), ^{
                 complete(results);
             });
         });
-        return NO;
+        return nil;
     } else {
         return [self query:sql];
     }

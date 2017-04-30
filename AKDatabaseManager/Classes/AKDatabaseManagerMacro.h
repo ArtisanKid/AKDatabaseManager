@@ -9,14 +9,10 @@
 #ifndef AKDatabaseManagerMacro_h
 #define AKDatabaseManagerMacro_h
 
-static BOOL AKDatabaseManagerLogState = YES;
-
-#define AKDatabaseManagerLogFormat(INFO, ...) [NSString stringWithFormat:(@"\n[Date:%s]\n[Time:%s]\n[File:%s]\n[Line:%d]\n[Function:%s]\n" INFO @"\n\n"), __DATE__, __TIME__, __FILE__, __LINE__, __PRETTY_FUNCTION__, ## __VA_ARGS__]
-
 #if DEBUG
-#define AKDatabaseManagerLog(INFO, ...) !AKDatabaseManagerLogState ? : NSLog((@"\n[Date:%s]\n[Time:%s]\n[File:%s]\n[Line:%d]\n[Function:%s]\n" INFO @"\n\n"), __DATE__, __TIME__, __FILE__, __LINE__, __PRETTY_FUNCTION__, ## __VA_ARGS__);
+    #define AKDatabaseManagerLog(_Format, ...) NSLog((@"\n[File:%s]\n[Line:%d]\n[Function:%s]\n" _Format), __FILE__, __LINE__, __PRETTY_FUNCTION__, ## __VA_ARGS__);printf("\n");
 #else
-#define AKDMLog(INFO, ...)
+    #define AKDatabaseManagerLog(_Format, ...)
 #endif
 
 #endif /* AKDatabaseManagerMacro_h */
