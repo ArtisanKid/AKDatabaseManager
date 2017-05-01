@@ -23,7 +23,7 @@ typedef void(^AKQueryComplete)(NSArray<NSDictionary *> *results);
  组装SQL语句
 
  @param sql 基础SQL语句
- @param basicParams Key-Value条件
+ @param params Key-Value条件
  @param specifiedParams 指定条件，指定条件会由‘AND’进行连接
  @return SQL语句
  */

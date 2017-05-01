@@ -117,22 +117,22 @@ static dispatch_queue_t AKDatabaseManagerConcurrentQueue() {
 
 #pragma mark- 公开方法
 + (NSString *)makeSQL:(NSString *)sql 
-          basicParams:(NSDictionary *)basicParams
+               params:(NSDictionary *)params
       specifiedParams:(NSArray *)specifiedParams {
     NSMutableString *mSQL = [NSMutableString stringWithString:sql];
-    if (basicParams.allValues.count || specifiedParams.count) {
+    if (params.allValues.count || specifiedParams.count) {
         [mSQL appendFormat:@" WHERE "];
     }
     
-    for (NSString *key in basicParams.allKeys) {
-        [mSQL appendFormat:@"%@ = '%@' AND ", key, basicParams[key]];
+    for (NSString *key in params.allKeys) {
+        [mSQL appendFormat:@"%@ = '%@' AND ", key, params[key]];
     }
     
     for (NSString *fragment in specifiedParams) {
         [mSQL appendFormat:@"%@ AND ", fragment];
     }
     
-    if (basicParams.allValues.count || specifiedParams.count) {
+    if (params.allValues.count || specifiedParams.count) {
         [mSQL appendString:@"1 = 1"];
     }
     
