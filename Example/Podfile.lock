@@ -10,10 +10,10 @@ DEPENDENCIES:
 
 EXTERNAL SOURCES:
   AKDatabaseManager:
-    :path: ../
+    :path: "../"
 
 SPEC CHECKSUMS:
-  AKDatabaseManager: c7803967a98fc1dfef819e1e4ca99225f8972a45
+  AKDatabaseManager: aa762be221fb82aed6cc7fd017797a532abd98ad
   FMDB: 854a0341b4726e53276f2a8996f06f1b80f9259a
 
 PODFILE CHECKSUM: 6691d4f3269b4327325ffb4e6fdfe5ae86e620d5
