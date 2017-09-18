@@ -23,7 +23,7 @@ typedef void(^AKDatabaseTransaction)(AKDatabase *db, BOOL *shouldRollback);
 
 @interface AKDatabase : NSObject
 
-@property (class, nonatomic, assign, getter=isDebug) BOOL debug;
+@property (nonatomic, assign, getter=isDebug) BOOL debug;
 
 + (AKDatabase *)dataWithPath:(NSString *)path;
 

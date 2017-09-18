@@ -55,20 +55,18 @@ NSErrorDomain AKDatabaseTableStructureColumnDefaultValueKey = @"dflt_value";//�
          具体参考：https://wereadteam.github.io/2016/08/19/SQLite/
          */
         if(sqlite3_config(SQLITE_CONFIG_MEMSTATUS, 0) != SQLITE_OK) {
-            if(AKDatabase.isDebug) {
-                AKDatabaseManagerLog(@"数据库配置失败");
-            }
+            AKDatabaseManagerLog(@"数据库配置失败");
         }
     });
 }
 
-static BOOL AKDatabaseDebug = NO;
-+ (void)setDebug:(BOOL)debug {
-    AKDatabaseDebug = debug;
-}
-+ (BOOL)isDebug {
-    return AKDatabaseDebug;
-}
+//static BOOL AKDatabaseDebug = NO;
+//+ (void)setDebug:(BOOL)debug {
+//    AKDatabaseDebug = debug;
+//}
+//+ (BOOL)isDebug {
+//    return AKDatabaseDebug;
+//}
 
 + (NSString *)identifierWithPath:(NSString *)path {
     return [NSString stringWithFormat:@"%@", @(path.hash)];
@@ -108,7 +106,7 @@ static BOOL AKDatabaseDebug = NO;
 
 - (void)setPath:(NSString *)path {
     if(self.readDatabase && self.writeDatabase) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库已连接，不可重复设置路径");
         }
         return;
@@ -119,7 +117,7 @@ static BOOL AKDatabaseDebug = NO;
 
 - (BOOL)open:(NSError **)error {
     if(self.isHadOpen) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库已连接，无需重复连接");
         }
         return YES;
@@ -136,15 +134,15 @@ static BOOL AKDatabaseDebug = NO;
         FMDatabase *readDatabase = [[FMDatabase alloc] initWithPath:self.path];
         FMDatabase *writeDatabase = [[FMDatabase alloc] initWithPath:self.path];
 #if DEBUG
-        readDatabase.traceExecution = YES;
-        readDatabase.checkedOut = YES;
-        readDatabase.crashOnErrors = YES;
-        readDatabase.logsErrors = YES;
+        readDatabase.traceExecution = self.isDebug;
+        readDatabase.checkedOut = self.isDebug;
+        readDatabase.crashOnErrors = self.isDebug;
+        readDatabase.logsErrors = self.isDebug;
         
-        writeDatabase.traceExecution = YES;
-        writeDatabase.checkedOut = YES;
-        writeDatabase.crashOnErrors = YES;
-        writeDatabase.logsErrors = YES;
+        writeDatabase.traceExecution = self.isDebug;
+        writeDatabase.checkedOut = self.isDebug;
+        writeDatabase.crashOnErrors = self.isDebug;
+        writeDatabase.logsErrors = self.isDebug;
 #else
         readDatabase.traceExecution = NO;
         readDatabase.checkedOut = NO;
@@ -171,7 +169,7 @@ static BOOL AKDatabaseDebug = NO;
             *error = self.writeDatabase.lastError;
         }
         
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库连接失败\n%@", *error);
         }
         
@@ -186,14 +184,14 @@ static BOOL AKDatabaseDebug = NO;
 
 - (BOOL)close:(NSError **)error {
     if(!self.isHadOpen) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库未连接，无需关闭");
         }
         return YES;
     }
     
     if(!self.readDatabase && !self.writeDatabase) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库未创建，无需关闭");
         }
         return YES;
@@ -208,7 +206,7 @@ static BOOL AKDatabaseDebug = NO;
             *error = self.writeDatabase.lastError;
         }
         
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库关闭失败\n%@", *error);
         }
         
@@ -227,7 +225,7 @@ static BOOL AKDatabaseDebug = NO;
         NSError *error = [NSError errorWithDomain:AKDatabaseErrorDomain
                                              code:AKDatabaseErrorCodeParamTypeError
                                          userInfo:@{AKDatabaseErrorMessageKey : @"SQL语句类型错误"}];
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"SQL语句类型错误");
         }
         !failure ? : failure(error);
@@ -238,7 +236,7 @@ static BOOL AKDatabaseDebug = NO;
         NSError *error = [NSError errorWithDomain:AKDatabaseErrorDomain
                                              code:AKDatabaseErrorCodeParamTypeError
                                          userInfo:@{AKDatabaseErrorMessageKey : @"SQL语句长度不能为0"}];
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"SQL语句长度不能为0");
         }
         !failure ? : failure(error);
@@ -255,8 +253,15 @@ static BOOL AKDatabaseDebug = NO;
         }
     };
 
-    if ([self.writeDatabase inTransaction]) {
+    if ([self.writeDatabase inTransaction]
+        && [self checkCurrentQueueIsWriteSerialQueue]) {
+        //当前在事务中
         method();
+    } else if ([self checkCurrentQueueIsReadSerialQueue]
+               || [self checkCurrentQueueIsWriteSerialQueue]) {//当前不在事务中，在指定队列中的
+        dispatch_async(self.write_serial_queue, ^{
+            method();
+        });
     } else {
         if(success) {
             dispatch_async(self.write_serial_queue, ^{
@@ -278,7 +283,7 @@ static BOOL AKDatabaseDebug = NO;
         NSError *error = [NSError errorWithDomain:AKDatabaseErrorDomain
                                              code:AKDatabaseErrorCodeParamTypeError
                                          userInfo:@{AKDatabaseErrorMessageKey : @"SQL语句类型错误"}];
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"SQL语句类型错误");
         }
         !failure ? : failure(error);
@@ -289,7 +294,7 @@ static BOOL AKDatabaseDebug = NO;
         NSError *error = [NSError errorWithDomain:AKDatabaseErrorDomain
                                              code:AKDatabaseErrorCodeParamTypeError
                                          userInfo:@{AKDatabaseErrorMessageKey : @"SQL语句长度不能为0"}];
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"SQL语句长度不能为0");
         }
         !failure ? : failure(error);
@@ -297,8 +302,8 @@ static BOOL AKDatabaseDebug = NO;
     }
     
     __block NSArray<NSDictionary *> *results = nil;
-    void (^method)() = ^{
-        FMResultSet *set = [self.writeDatabase executeQuery:sql];
+    void (^method)(FMDatabase *) = ^(FMDatabase *db){
+        FMResultSet *set = [db executeQuery:sql];
         NSError *transitionError = nil;
         results = [self resultsFromSet:set error:&transitionError];
         [set close];
@@ -310,16 +315,23 @@ static BOOL AKDatabaseDebug = NO;
         }
     };
     
-    if ([self checkCurrentQueueIsWriteSerialQueue]) {
-        method();
+    if ([self.writeDatabase inTransaction]
+        && [self checkCurrentQueueIsWriteSerialQueue]) {
+        //当前在事务中
+        method(self.writeDatabase);
+    } else if ([self checkCurrentQueueIsWriteSerialQueue]
+               || [self checkCurrentQueueIsReadSerialQueue]) {
+        dispatch_async(self.read_serial_queue, ^{
+            method(self.readDatabase);
+        });
     } else {
         if(success) {
             dispatch_async(self.read_serial_queue, ^{
-                method();
+                method(self.readDatabase);
             });
         } else {
             dispatch_sync(self.read_serial_queue, ^{
-                method();
+                method(self.readDatabase);
             });
         }
     }
@@ -335,15 +347,15 @@ static BOOL AKDatabaseDebug = NO;
         if (useDeferred) {
             result = [self.writeDatabase beginDeferredTransaction];
             if(!result) {
-                if(AKDatabase.isDebug) {
-                    AKDatabaseManagerLog(@"Deferred事务开始失败\n%@", self.database.lastError);
+                if(self.isDebug) {
+                    AKDatabaseManagerLog(@"Deferred事务开始失败\n%@", self.writeDatabase.lastError);
                 }
             }
         } else {
             result = [self.writeDatabase beginTransaction];
             if(!result) {
-                if(AKDatabase.isDebug) {
-                    AKDatabaseManagerLog(@"事务开始失败\n%@", self.database.lastError);
+                if(self.isDebug) {
+                    AKDatabaseManagerLog(@"事务开始失败\n%@", self.writeDatabase.lastError);
                 }
             }
         }
@@ -357,7 +369,7 @@ static BOOL AKDatabaseDebug = NO;
         transaction(self, &shouldRollback);
         
         if (shouldRollback) {
-            if(AKDatabase.isDebug) {
+            if(self.isDebug) {
                 AKDatabaseManagerLog(@"事务回滚");
             }
             [self.writeDatabase rollback];
@@ -365,7 +377,7 @@ static BOOL AKDatabaseDebug = NO;
         } else {
             result = [self.writeDatabase commit];
             if(!result) {
-                if(AKDatabase.isDebug) {
+                if(self.isDebug) {
                     AKDatabaseManagerLog(@"事务提交失败");
                 }
             }
@@ -377,14 +389,19 @@ static BOOL AKDatabaseDebug = NO;
         }
     };
     
-    if(success) {
-        dispatch_async(self.write_serial_queue, ^{
-            block();
-        });
+    if([self.writeDatabase inTransaction]
+       && [self checkCurrentQueueIsWriteSerialQueue]) {
+        block();
     } else {
-        dispatch_sync(self.write_serial_queue, ^{
-            block();
-        });
+        if(success) {
+            dispatch_async(self.write_serial_queue, ^{
+                block();
+            });
+        } else {
+            dispatch_sync(self.write_serial_queue, ^{
+                block();
+            });
+        }
     }
     return result;
 }
@@ -394,7 +411,7 @@ static BOOL AKDatabaseDebug = NO;
         *error = [NSError errorWithDomain:AKDatabaseErrorDomain
                                      code:AKDatabaseErrorCodeParamError
                                  userInfo:@{AKDatabaseErrorMessageKey : @"数据库表没有名称"}];
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库表没有名称");
         }
         return NO;
@@ -404,7 +421,7 @@ static BOOL AKDatabaseDebug = NO;
         *error = [NSError errorWithDomain:AKDatabaseErrorDomain
                                      code:AKDatabaseErrorCodeParamError
                                  userInfo:@{AKDatabaseErrorMessageKey : @"数据库表中没有列信息"}];
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库表中没有列信息");
         }
         return NO;
@@ -418,7 +435,7 @@ static BOOL AKDatabaseDebug = NO;
         *error = [NSError errorWithDomain:AKDatabaseErrorDomain
                                      code:AKDatabaseErrorCodeParamTypeError
                                  userInfo:@{AKDatabaseErrorMessageKey : @"数据库表中列信息错误"}];
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"数据库表中列信息错误");
         }
         return NO;
@@ -439,7 +456,7 @@ static BOOL AKDatabaseDebug = NO;
         switch (policy) {
             case AKDatabaseTableCreateDefault: {
                 if(hasExist) {
-                    if(AKDatabase.isDebug) {
+                    if(self.isDebug) {
                         AKDatabaseManagerLog(@"创建表失败，已有表");
                     }
                 }
@@ -496,11 +513,21 @@ static BOOL AKDatabaseDebug = NO;
                 break;
         }
     } deferred:YES success:nil failure:^(NSError * _Nonnull error) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"创建表失败\n%@", error);
         }
     }];
     return result;
+}
+
+#pragma mark - Private Method
+
+- (BOOL)checkCurrentQueueIsReadSerialQueue {
+    const char *label = dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL);
+    if (strcmp(label, dispatch_queue_get_label(self.read_serial_queue)) == 0) {
+        return YES;
+    }
+    return NO;
 }
 
 - (BOOL)checkCurrentQueueIsWriteSerialQueue {
@@ -536,11 +563,11 @@ static BOOL AKDatabaseDebug = NO;
     }
     
     if(isExist) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"%@表存在", tableName);
         }
     } else {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"%@表不存在", tableName);
         }
     }
@@ -549,7 +576,7 @@ static BOOL AKDatabaseDebug = NO;
 }
 
 - (BOOL)checkTableStructure:(AKDatabaseTable *)table error:(NSError **)error {
-    NSString *sql = [NSString stringWithFormat:@"PRAGMA table_info('%@');", table.name];
+    NSString *sql = [NSString stringWithFormat:@"PRAGMA table_info(%@);", table.name];
     NSArray<NSDictionary *> *results = [self query:sql success:nil failure:^(NSError * _Nonnull _error) {
         if(error) {
             *error = _error;
@@ -600,11 +627,11 @@ static BOOL AKDatabaseDebug = NO;
     }
     
     if(sameStructure) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"%@表结构相同", table.name);
         }
     } else {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"%@表结构变更", table.name);
         }
     }
@@ -649,7 +676,7 @@ static BOOL AKDatabaseDebug = NO;
     
     [sqlM appendFormat:@" (%@)", [[columnSQLsM copy] componentsJoinedByString:@", "]];
     
-    if(AKDatabase.isDebug) {
+    if(self.isDebug) {
         AKDatabaseManagerLog(@"创建表SQL\n%@", [sqlM copy]);
     }
     
@@ -660,7 +687,7 @@ static BOOL AKDatabaseDebug = NO;
     }];
     
     if(!result) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"创建表失败\n%@", *error);
         }
     }
@@ -699,7 +726,7 @@ static BOOL AKDatabaseDebug = NO;
 
 //更改表名
 - (BOOL)alterTable:(NSString *)tableName newTableName:(NSString *)newTableName error:(NSError **)error {
-    NSString *sql = [NSString stringWithFormat:@"ALTER TABLE %@ RENAME TO %@", tableName, newTableName];
+    NSString *sql = [NSString stringWithFormat:@"ALTER TABLE %@ RENAME TO %@;", tableName, newTableName];
     BOOL result = [self update:sql success:nil failure:^(NSError * _Nonnull _error) {
         if(error) {
             *error = _error;
@@ -707,7 +734,7 @@ static BOOL AKDatabaseDebug = NO;
     }];
     
     if(!result) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"更改表名 %@->%@ 失败\n%@", tableName, newTableName, *error);
         }
     }
@@ -719,7 +746,7 @@ static NSString *AKDatabaseTableStructureNameKey = @"name";
 static NSString *AKDatabaseTableStructureTypeKey = @"type";
 
 - (BOOL)migrateTable:(NSString *)tableName toTable:(NSString *)newTableName error:(NSError **)error {
-    NSString *originStructureSQL = [NSString stringWithFormat:@"PRAGMA TABLE_INFO ('%@')", tableName];
+    NSString *originStructureSQL = [NSString stringWithFormat:@"PRAGMA TABLE_INFO (%@);", tableName];
     NSArray<NSDictionary *> *originStructures = [self query:originStructureSQL success:nil failure:^(NSError * _Nonnull _error) {
         if(error) {
             *error = _error;
@@ -730,7 +757,7 @@ static NSString *AKDatabaseTableStructureTypeKey = @"type";
         return NO;
     }
     
-    NSString *newStructureSQL = [NSString stringWithFormat:@"PRAGMA TABLE_INFO ('%@')", newTableName];
+    NSString *newStructureSQL = [NSString stringWithFormat:@"PRAGMA TABLE_INFO (%@);", newTableName];
     NSArray<NSDictionary *> *newStructures = [self query:newStructureSQL success:nil failure:^(NSError * _Nonnull _error) {
         if(error) {
             *error = _error;
@@ -764,46 +791,39 @@ static NSString *AKDatabaseTableStructureTypeKey = @"type";
     }];
     
     if(!results.count) {
-        return NO;
+        return YES;
     }
     
     NSMutableString *insertSQLM = [NSMutableString stringWithFormat:@"INSERT INTO %@ (", newTableName];
     [insertSQLM appendString:[columnNamesM componentsJoinedByString:@", "]];
     [insertSQLM appendString:@") VALUES ('"];
     
-    BOOL result = [self inTransaction:^(AKDatabase * _Nonnull db, BOOL * _Nonnull shouldRollback) {
-        for(NSDictionary *result in results) {
-            NSMutableString *sqlM = [insertSQLM mutableCopy];
-            
-            NSMutableArray<id> *valuesM = [NSMutableArray array];
-            for(NSString *columnName in columnNamesM) {
-                [valuesM addObject:result[columnName]];
-            }
-            
-            [sqlM appendString:[valuesM componentsJoinedByString:@"', '"]];
-            [sqlM appendString:@"');"];
-            
-            BOOL result = [db update:[sqlM copy] success:nil failure:^(NSError * _Nonnull _error) {
-                if(error) {
-                    *error = _error;
-                }
-            }];
-            
-            if(!result) {
-                *shouldRollback = YES;
-                return;
-            }
+    for(NSDictionary *result in results) {
+        NSMutableString *sqlM = [insertSQLM mutableCopy];
+        
+        NSMutableArray<id> *valuesM = [NSMutableArray array];
+        for(NSString *columnName in columnNamesM) {
+            [valuesM addObject:result[columnName]];
         }
-    } deferred:NO success:nil failure:^(NSError * _Nonnull _error) {
-        if(error) {
-            *error = _error;
+        
+        [sqlM appendString:[valuesM componentsJoinedByString:@"', '"]];
+        [sqlM appendString:@"');"];
+        
+        BOOL result = [self update:[sqlM copy] success:nil failure:^(NSError * _Nonnull _error) {
+            if(error) {
+                *error = _error;
+            }
+        }];
+        
+        if(!result) {
+            return result;
         }
-    }];
-    return result;
+    }
+    return YES;
 }
 
 - (BOOL)deleteTable:(NSString *)name error:(NSError **)error {
-    NSString *sql = [NSString stringWithFormat:@"DROP TABLE %@", name];
+    NSString *sql = [NSString stringWithFormat:@"DROP TABLE %@;", name];
     BOOL result = [self update:sql success:nil failure:^(NSError * _Nonnull _error) {
         if(error) {
             *error = _error;
@@ -811,7 +831,7 @@ static NSString *AKDatabaseTableStructureTypeKey = @"type";
     }];
     
     if(!result) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"删除过期表 %@ 失败\n%@", name, *error);
         }
     }
@@ -822,9 +842,9 @@ static NSString *AKDatabaseTableStructureTypeKey = @"type";
 - (BOOL)emptyTable:(NSString *)name forceReset:(BOOL)forceReset error:(NSError **)error {
     NSString *sql = nil;
     if(forceReset) {
-        sql = [NSString stringWithFormat:@"TRUNCATE TABLE %@", name];
+        sql = [NSString stringWithFormat:@"TRUNCATE TABLE %@;", name];
     } else {
-        sql = [NSString stringWithFormat:@"DELETE FROM %@", name];
+        sql = [NSString stringWithFormat:@"DELETE FROM %@;", name];
     }
     
     BOOL result = [self update:sql success:nil failure:^(NSError * _Nonnull _error) {
@@ -832,7 +852,7 @@ static NSString *AKDatabaseTableStructureTypeKey = @"type";
     }];
     
     if(!result) {
-        if(AKDatabase.isDebug) {
+        if(self.isDebug) {
             AKDatabaseManagerLog(@"清理表 %@ 失败\n%@", name, *error);
         }
     }

@@ -9,8 +9,6 @@
 #ifndef AKDatabaseManagerMacros_h
 #define AKDatabaseManagerMacros_h
 
-#define DEBUG 0
-
 #if DEBUG
     #define AKDatabaseManagerLog(_Format, ...)\
     do {\
