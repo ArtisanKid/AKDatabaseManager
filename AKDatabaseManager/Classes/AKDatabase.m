@@ -244,7 +244,7 @@ NSErrorDomain AKDatabaseTableStructureColumnDefaultValueKey = @"dflt_value";//�
     }
     
     __block BOOL result = NO;
-    void (^method)() = ^{
+    void (^block)() = ^{
         result = [self.writeDatabase executeUpdate:sql];
         if(result) {
             !success ? : success(result);
@@ -254,23 +254,17 @@ NSErrorDomain AKDatabaseTableStructureColumnDefaultValueKey = @"dflt_value";//�
     };
 
     if ([self.writeDatabase inTransaction]
-        && [self checkCurrentQueueIsWriteSerialQueue]) {
-        //当前在事务中
-        method();
+        && [self checkCurrentQueueIsWriteSerialQueue]) {//当前在事务中，且在指定队列中的
+        //实际上就是事务对应block中的外界传入的block
+        block();
     } else if ([self checkCurrentQueueIsReadSerialQueue]
                || [self checkCurrentQueueIsWriteSerialQueue]) {//当前不在事务中，在指定队列中的
-        dispatch_async(self.write_serial_queue, ^{
-            method();
-        });
+        dispatch_async(self.write_serial_queue, block);
     } else {
         if(success) {
-            dispatch_async(self.write_serial_queue, ^{
-                method();
-            });
+            dispatch_async(self.write_serial_queue, block);
         } else {
-            dispatch_sync(self.write_serial_queue, ^{
-                method();
-            });
+            dispatch_sync(self.write_serial_queue, block);
         }
     }
     return result;
@@ -302,7 +296,7 @@ NSErrorDomain AKDatabaseTableStructureColumnDefaultValueKey = @"dflt_value";//�
     }
     
     __block NSArray<NSDictionary *> *results = nil;
-    void (^method)(FMDatabase *) = ^(FMDatabase *db){
+    void (^baseBlock)(FMDatabase *) = ^(FMDatabase *db){
         FMResultSet *set = [db executeQuery:sql];
         NSError *transitionError = nil;
         results = [self resultsFromSet:set error:&transitionError];
@@ -315,24 +309,22 @@ NSErrorDomain AKDatabaseTableStructureColumnDefaultValueKey = @"dflt_value";//�
         }
     };
     
+    void (^block)() = ^(){
+        baseBlock(self.readDatabase);
+    };
+    
     if ([self.writeDatabase inTransaction]
         && [self checkCurrentQueueIsWriteSerialQueue]) {
         //当前在事务中
-        method(self.writeDatabase);
+        baseBlock(self.writeDatabase);
     } else if ([self checkCurrentQueueIsWriteSerialQueue]
                || [self checkCurrentQueueIsReadSerialQueue]) {
-        dispatch_async(self.read_serial_queue, ^{
-            method(self.readDatabase);
-        });
+        dispatch_async(self.read_serial_queue, block);
     } else {
         if(success) {
-            dispatch_async(self.read_serial_queue, ^{
-                method(self.readDatabase);
-            });
+            dispatch_async(self.read_serial_queue, block);
         } else {
-            dispatch_sync(self.read_serial_queue, ^{
-                method(self.readDatabase);
-            });
+            dispatch_sync(self.read_serial_queue, block);
         }
     }
     return results;
@@ -394,13 +386,9 @@ NSErrorDomain AKDatabaseTableStructureColumnDefaultValueKey = @"dflt_value";//�
         block();
     } else {
         if(success) {
-            dispatch_async(self.write_serial_queue, ^{
-                block();
-            });
+            dispatch_async(self.write_serial_queue, block);
         } else {
-            dispatch_sync(self.write_serial_queue, ^{
-                block();
-            });
+            dispatch_sync(self.write_serial_queue, block);
         }
     }
     return result;
